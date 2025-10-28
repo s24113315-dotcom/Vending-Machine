@@ -91,6 +91,68 @@
       color: #ffcc00;
       text-shadow: 0 0 5px #ffcc00;
     }
+
+    /* Receipt styles */
+    .receipt {
+      background: #fff;
+      color: #111;
+      max-width: 420px;
+      margin: 0 auto;
+      padding: 18px 20px;
+      border-radius: 10px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+      position: relative;
+      overflow: hidden;
+      font-family: Arial, Helvetica, sans-serif;
+      text-align: left;
+    }
+    .receipt::before{
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 45%;
+      transform: translate(-50%, -50%) rotate(-10deg);
+      width: 240px;
+      height: 240px;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 29.6"><path fill="%23ff69b4" d="M23.6 0c-2.9 0-5 1.8-6.1 3.6C16.4 1.8 14.3 0 11.4 0 6.1 0 2 4.1 2 9.4c0 9.3 12 14.9 14.8 20.2 2.8-5.3 14.8-10.9 14.8-20.2C30.6 4.1 26.5 0 21.2 0z"/></svg>');
+      background-repeat: no-repeat;
+      background-size: contain;
+      opacity: 0.06;
+      pointer-events: none;
+    }
+    .receipt h3 { margin:0 0 4px 0; }
+    .receipt small { color:#666; }
+    .receipt .receipt-meta { font-size:12px; color:#444; margin:8px 0 10px 0; }
+    .receipt .line { display:flex; justify-content:space-between; padding:6px 0; border-bottom: 1px dashed #eee; }
+    .receipt .accessory-list { margin:8px 0 0 16px; padding:0; list-style: disc; color:#333; }
+    .receipt .receipt-totals .line { border-bottom:none; font-weight:600; }
+    .receipt .receipt-foot { margin-top:12px; text-align:center; color:#666; font-size:13px; }
+
+    .disabled { opacity: 0.45; pointer-events: none; filter: grayscale(60%); }
+
+    /* Print tweaks: only show receipt area when printing */
+    @media print {
+      body * { visibility: hidden; }
+      #receipt-wrapper, #receipt-wrapper * { visibility: visible; }
+      #receipt-wrapper { position: absolute; left: 0; top: 0; width: 100%; }
+      .receipt { box-shadow: none; margin: 0 auto; }
+    }
+
+    /* Debug panel */
+    #debug {
+      display: none;
+      margin-top: 12px;
+      background:#220;
+      color:#ffdddd;
+      padding:8px;
+      border-radius:6px;
+      font-size:13px;
+      text-align:left;
+      max-width:700px;
+      margin-left:auto;
+      margin-right:auto;
+      white-space:pre-wrap;
+    }
   </style>
 </head>
 <body>
@@ -121,6 +183,20 @@
 
   <button class="purchase" onclick="purchase()">Buy</button>
   <p id="result"></p>
+
+  <div id="receipt-wrapper" style="margin-top:20px; display:none;">
+    <div id="receipt" class="receipt">
+      <!-- Receipt content will be injected here -->
+    </div>
+    <div style="margin-top:10px; display:flex; justify-content:center; gap:10px;">
+      <button class="purchase" onclick="printReceipt()">Print Receipt</button>
+      <button class="purchase" onclick="hideReceipt()">Close</button>
+    </div>
+  </div>
+
+  <div id="debug"></div>
+
+  <p style="margin-top:18px; font-size:12px; color:#888">© 2025 s24113315-dotcom. All rights reserved.</p>
 </div>
 
 <script>
@@ -164,6 +240,7 @@
 
   function createButtons(items, containerId, type) {
     const container = document.getElementById(containerId);
+    container.innerHTML = '';
     items.forEach((item, index) => {
       const btn = document.createElement("button");
       if (type === "phone") {
@@ -172,6 +249,8 @@
         btn.onclick = () => {
           selectedPhone = item;
           highlightSelection(containerId, index);
+          // Re-render storage buttons based on phone selection
+          renderStorageButtons(item);
         };
       } else if (type === "storage") {
         btn.className = "storage-button";
@@ -198,8 +277,54 @@
     });
   }
 
+  // Storage availability rules: 1TB only for specific Pro models, 2TB only for iPhone 17 Pro Max
+  function isStorageAllowed(phoneName, size){
+    const oneTbAllowed = new Set([
+      'iPhone 15 Pro','iPhone 15 Pro Max',
+      'iPhone 16 Pro','iPhone 16 Pro Max',
+      'iPhone 17 Pro','iPhone 17 Pro Max'
+    ]);
+    if (size === '1TB') return oneTbAllowed.has(phoneName);
+    if (size === '2TB') return phoneName === 'iPhone 17 Pro Max';
+    return true; // 128/256/512 allowed for all
+  }
+
+  function renderStorageButtons(phone){
+    const container = document.getElementById('storage-buttons');
+    container.innerHTML = '';
+    // Ensure selectedStorage is allowed for this phone, else pick first allowed
+    if (!isStorageAllowed(phone.name, selectedStorage.size)){
+      const firstAllowed = storageOptions.find(s => isStorageAllowed(phone.name, s.size));
+      if (firstAllowed) selectedStorage = firstAllowed;
+    }
+
+    storageOptions.forEach((item, index) => {
+      const btn = document.createElement('button');
+      btn.className = 'storage-button';
+      btn.textContent = `${item.size} +NT$${item.price}`;
+      const allowed = isStorageAllowed(phone.name, item.size);
+      if (!allowed) {
+        btn.classList.add('disabled');
+        btn.setAttribute('disabled', 'disabled');
+        btn.title = 'Not available for selected model';
+      } else {
+        btn.onclick = () => {
+          selectedStorage = item;
+          // re-render to update selection highlight
+          renderStorageButtons(phone);
+        };
+      }
+      // Add visual selection state
+      if (selectedStorage && selectedStorage.size === item.size && allowed) {
+        btn.classList.add('selected');
+      }
+      container.appendChild(btn);
+    });
+  }
+
   function createMoneyButtons() {
     const container = document.getElementById("money-buttons");
+    container.innerHTML = '';
     denominations.forEach(value => {
       const btn = document.createElement("button");
       btn.className = "money-button";
@@ -207,6 +332,7 @@
       btn.onclick = () => {
         insertedAmount += value;
         document.getElementById("inserted-amount").textContent = `NT$${insertedAmount}`;
+        animateCoin(value);
       };
       container.appendChild(btn);
     });
@@ -217,7 +343,7 @@
     for (let i = 0; i < buttons.length; i++) {
       buttons[i].classList.remove("selected");
     }
-    buttons[selectedIndex].classList.add("selected");
+    if (buttons[selectedIndex]) buttons[selectedIndex].classList.add("selected");
   }
 
   function purchase() {
@@ -231,6 +357,20 @@
              ? selectedAccessories.map(a => a.name).join(", ")
       : "None";
       result.textContent = `✅ You bought a ${selectedPhone.name} with ${selectedStorage.size} and accessories: ${accessoryNames}. Change: NT$${change}`;
+      // Build receipt
+      const tx = {
+        id: `TX-${Date.now().toString().slice(-8)}-${Math.floor(Math.random()*900+100)}`,
+        date: new Date(),
+        phone: selectedPhone.name,
+        storage: selectedStorage.size,
+        accessories: selectedAccessories.slice(),
+        subtotal: total,
+        paid: insertedAmount,
+        change: change
+      };
+      showReceipt(tx);
+
+      // reset
       insertedAmount = 0;
       selectedAccessories = [];
       document.getElementById("inserted-amount").textContent = `NT$0`;
@@ -240,12 +380,111 @@
     }
   }
 
-  window.onload = () => {
-    createButtons(phones, "phone-buttons", "phone");
-    createButtons(storageOptions, "storage-buttons", "storage");
-    createButtons(accessories, "accessory-buttons", "accessory");
-    createMoneyButtons();
-  };
+  function formatCurrency(n){
+    return `NT$${n.toLocaleString()}`;
+  }
+
+  function showReceipt(tx){
+    const r = document.getElementById('receipt');
+    const dateStr = tx.date.toLocaleString();
+    const accessoriesList = tx.accessories.length ? tx.accessories.map(a=>`<li>${a.name} — ${formatCurrency(a.price)}</li>`).join('') : '<li>None</li>';
+    r.innerHTML = `
+      <div class="receipt-header">
+        <h3>iPhone Vending Machine</h3>
+        <small>Receipt</small>
+      </div>
+      <div class="receipt-meta">
+        <div>Transaction: <strong>${tx.id}</strong></div>
+        <div>Date: <strong>${dateStr}</strong></div>
+      </div>
+      <hr />
+      <div class="receipt-body">
+        <div class="line"><span>Phone</span><span>${tx.phone}</span></div>
+        <div class="line"><span>Storage</span><span>${tx.storage}</span></div>
+        <div class="line"><span>Accessories</span><span></span></div>
+        <ul class="accessory-list">${accessoriesList}</ul>
+      </div>
+      <hr />
+      <div class="receipt-totals">
+        <div class="line"><span>Subtotal</span><span>${formatCurrency(tx.subtotal)}</span></div>
+        <div class="line"><span>Paid</span><span>${formatCurrency(tx.paid)}</span></div>
+        <div class="line"><span>Change</span><span>${formatCurrency(tx.change)}</span></div>
+      </div>
+      <div class="receipt-foot">Thank you for your purchase 💙</div>
+    `;
+    document.getElementById('receipt-wrapper').style.display = 'block';
+  }
+
+  function hideReceipt(){
+    document.getElementById('receipt-wrapper').style.display = 'none';
+    document.getElementById('receipt').innerHTML = '';
+  }
+
+  // Use inline print to avoid popup blockers in Live Server / Go Live
+  function printReceipt(){
+    const wrapper = document.getElementById('receipt-wrapper');
+    const prev = wrapper.style.display;
+    wrapper.style.display = 'block';
+    setTimeout(() => {
+      try {
+        window.print();
+      } finally {
+        wrapper.style.display = prev;
+      }
+    }, 120);
+  }
+
+  // small coin animation for feedback
+  function animateCoin(value){
+    const coin = document.createElement('div');
+    coin.textContent = `NT$${value}`;
+    Object.assign(coin.style, {
+      position: 'fixed', right: '60px', top: '120px',
+      background: 'linear-gradient(180deg,#ffe27a,#ffb84d)',
+      color: '#000', padding: '6px 10px', borderRadius: '999px',
+      boxShadow: '0 6px 18px rgba(0,0,0,0.4)',
+      transition: 'transform 800ms cubic-bezier(.2,.8,.2,1), opacity 800ms',
+      zIndex: 9999
+    });
+    document.body.appendChild(coin);
+    requestAnimationFrame(()=>{
+      coin.style.transform = 'translateY(220px) scale(.6)';
+      coin.style.opacity = '0';
+    });
+    setTimeout(()=> coin.remove(), 900);
+  }
+
+  // Debug helpers for Live Server issues
+  function showDebug(msg){
+    const d = document.getElementById('debug');
+    d.style.display = 'block';
+    d.textContent = msg;
+    console.error(msg);
+  }
+
+  window.addEventListener('error', (e) => {
+    showDebug(`Runtime error: ${e.message} at ${e.filename}:${e.lineno}:${e.colno}`);
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    showDebug(`Unhandled promise rejection: ${e.reason}`);
+  });
+
+  document.addEventListener('DOMContentLoaded', () => {
+    try {
+      createButtons(phones, "phone-buttons", "phone");
+      // highlight initial phone button
+      highlightSelection('phone-buttons', 0);
+      // Render storage buttons according to the currently selected phone
+      renderStorageButtons(selectedPhone);
+      createButtons(accessories, "accessory-buttons", "accessory");
+      createMoneyButtons();
+    } catch (err) {
+      showDebug('Initialization failed: ' + (err && err.message ? err.message : String(err)));
+    }
+    if (location.protocol === 'file:') {
+      showDebug('Warning: page served with file:// — use Live Server or "python3 -m http.server" for correct behavior.');
+    }
+  });
 </script>
 </body>
 </html>
