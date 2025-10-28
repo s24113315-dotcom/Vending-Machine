@@ -110,14 +110,30 @@
       content: "";
       position: absolute;
       left: 50%;
-      top: 45%;
-      transform: translate(-50%, -50%) rotate(-10deg);
-      width: 240px;
-      height: 240px;
-        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='56' fill='%23ff73e6' font-family='Noto Sans, Arial, sans-serif'>倪瑪芮</text></svg>");
+      top: 50%;
+      transform: translate(-50%, -50%) rotate(-12deg);
+      width: 200px;
+      height: 90px;
+      /* centered vector heart + name watermark (smaller) */
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 120'><path d='M23.6 0c-2.9 0-5 1.8-6.1 3.6C16.4 1.8 14.3 0 11.4 0 6.1 0 2 4.1 2 9.4c0 9.3 12 14.9 14.8 20.2 2.8-5.3 14.8-10.9 14.8-20.2C30.6 4.1 26.5 0 21.2 0z' fill='%23ff69b4' transform='translate(12,12) scale(2.2)'/><text x='110' y='72' font-size='56' fill='%23ff73e6' font-family='Noto Sans, Arial, sans-serif'>倪瑪芮</text></svg>");
       background-repeat: no-repeat;
-      background-size: contain;
-      opacity: 0.06;
+      background-position: center center;
+      background-size: 200px 90px;
+      opacity: 0.14;
+      pointer-events: none;
+    }
+    /* glow and color accents behind the watermark for a cooler look */
+    .receipt::after{
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%) rotate(-12deg);
+      width: 260px;
+      height: 120px;
+      background: radial-gradient(circle at 30% 40%, rgba(255,115,230,0.12), transparent 32%), radial-gradient(circle at 70% 60%, rgba(126,240,255,0.10), transparent 36%);
+      mix-blend-mode: screen;
+      opacity: 0.7;
       pointer-events: none;
     }
     .receipt h3 { margin:0 0 4px 0; }
@@ -127,6 +143,17 @@
     .receipt .accessory-list { margin:8px 0 0 16px; padding:0; list-style: disc; color:#333; }
     .receipt .receipt-totals .line { border-bottom:none; font-weight:600; }
     .receipt .receipt-foot { margin-top:12px; text-align:center; color:#666; font-size:13px; }
+
+    /* hide large background watermark now that we show a small signature */
+    .receipt::before, .receipt::after { display: none !important; }
+
+    .receipt .receipt-foot { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .receipt .receipt-foot .receipt-sign {
+      color: #ff3b3b; /* red */
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: 1px;
+    }
 
     .disabled { opacity: 0.45; pointer-events: none; filter: grayscale(60%); }
 
@@ -409,7 +436,7 @@
         <div class="line"><span>Paid</span><span>${formatCurrency(tx.paid)}</span></div>
         <div class="line"><span>Change</span><span>${formatCurrency(tx.change)}</span></div>
       </div>
-      <div class="receipt-foot">Thank you for your purchase 💙</div>
+      <div class="receipt-foot"><span>Thank you for your purchase 💙</span><span class="receipt-sign">❤ 倪瑪芮</span></div>
     `;
     document.getElementById('receipt-wrapper').style.display = 'block';
   }
